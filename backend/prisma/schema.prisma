@@ -1,0 +1,326 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  OWNER
+  MANAGER
+  CASHIER
+  CAPTAIN
+  KITCHEN
+}
+
+enum TableStatus {
+  VACANT
+  OCCUPIED
+  BILLING
+}
+
+enum OrderStatus {
+  OPEN
+  KOT_SENT
+  BILLED
+  CANCELLED
+}
+
+enum OrderItemStatus {
+  PENDING
+  SENT_TO_KITCHEN
+  SERVED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  UPI
+  CARD
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  REFUNDED
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  outlets   Outlet[]
+  users     User[]
+}
+
+model User {
+  id             String       @id @default(cuid())
+  email          String       @unique
+  passwordHash   String
+  name           String
+  role           UserRole     @default(CASHIER)
+  pin            String?
+  isActive       Boolean      @default(true)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  orders         Order[]
+  bills          Bill[]
+
+  @@unique([organizationId, pin])
+  @@index([organizationId])
+}
+
+model Outlet {
+  id             String       @id @default(cuid())
+  name           String
+  address        String?
+  gstNumber      String?
+  gstRate        Decimal      @default(5) @db.Decimal(5, 2)
+  qrMenuEnabled  Boolean      @default(true)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  areas          Area[]
+  categories     Category[]
+  orders         Order[]
+
+  @@index([organizationId])
+}
+
+model Area {
+  id        String   @id @default(cuid())
+  name      String
+  outletId  String
+  outlet    Outlet   @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tables    Table[]
+
+  @@index([outletId])
+}
+
+model Table {
+  id        String      @id @default(cuid())
+  name      String
+  capacity  Int         @default(4)
+  status    TableStatus @default(VACANT)
+  qrToken   String?     @unique
+  areaId    String
+  area      Area        @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  orders    Order[]
+
+  @@unique([areaId, name])
+  @@index([areaId])
+}
+
+model Category {
+  id        String     @id @default(cuid())
+  name      String
+  sortOrder Int        @default(0)
+  isActive  Boolean    @default(true)
+  outletId  String
+  outlet    Outlet     @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  items     MenuItem[]
+
+  @@index([outletId])
+}
+
+model MenuItem {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  price       Decimal     @db.Decimal(10, 2)
+  isVeg       Boolean     @default(true)
+  isActive    Boolean     @default(true)
+  sortOrder   Int         @default(0)
+  categoryId  String
+  category    Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  variations  Variation[]
+  addons      ItemAddon[]
+  orderItems  OrderItem[]
+
+  @@index([categoryId])
+}
+
+model Variation {
+  id         String      @id @default(cuid())
+  name       String
+  price      Decimal     @db.Decimal(10, 2)
+  menuItemId String
+  menuItem   MenuItem    @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  isActive   Boolean     @default(true)
+  orderItems OrderItem[]
+
+  @@index([menuItemId])
+}
+
+model Addon {
+  id        String            @id @default(cuid())
+  name      String
+  price     Decimal           @db.Decimal(10, 2)
+  isActive  Boolean           @default(true)
+  outletId  String
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  items     ItemAddon[]
+  orderItemAddons OrderItemAddon[]
+
+  @@index([outletId])
+}
+
+model ItemAddon {
+  menuItemId String
+  addonId    String
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  addon      Addon    @relation(fields: [addonId], references: [id], onDelete: Cascade)
+
+  @@id([menuItemId, addonId])
+}
+
+model Order {
+  id          String      @id @default(cuid())
+  orderNumber Int
+  status      OrderStatus @default(OPEN)
+  notes       String?
+  tableId     String
+  table       Table       @relation(fields: [tableId], references: [id])
+  outletId    String
+  outlet      Outlet      @relation(fields: [outletId], references: [id])
+  createdById String
+  createdBy   User        @relation(fields: [createdById], references: [id])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  items       OrderItem[]
+  kots        Kot[]
+  bills       Bill[]
+
+  @@unique([outletId, orderNumber])
+  @@index([tableId])
+  @@index([outletId, createdAt])
+}
+
+model OrderItem {
+  id           String            @id @default(cuid())
+  quantity     Int               @default(1)
+  unitPrice    Decimal           @db.Decimal(10, 2)
+  notes        String?
+  status       OrderItemStatus   @default(PENDING)
+  orderId      String
+  order        Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId   String
+  menuItem     MenuItem          @relation(fields: [menuItemId], references: [id])
+  variationId  String?
+  variation    Variation?        @relation(fields: [variationId], references: [id])
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  addons       OrderItemAddon[]
+  kotItems     KotItem[]
+
+  @@index([orderId])
+}
+
+model OrderItemAddon {
+  id          String    @id @default(cuid())
+  orderItemId String
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  addonId     String
+  addon       Addon     @relation(fields: [addonId], references: [id])
+  price       Decimal   @db.Decimal(10, 2)
+
+  @@index([orderItemId])
+}
+
+model Kot {
+  id        String    @id @default(cuid())
+  kotNumber Int
+  orderId   String
+  order     Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  items     KotItem[]
+
+  @@index([orderId])
+}
+
+model KotItem {
+  id          String    @id @default(cuid())
+  kotId       String
+  kot         Kot       @relation(fields: [kotId], references: [id], onDelete: Cascade)
+  orderItemId String
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id])
+
+  @@index([kotId])
+}
+
+model Bill {
+  id            String        @id @default(cuid())
+  billNumber    Int
+  subtotal      Decimal       @db.Decimal(10, 2)
+  discountAmount Decimal      @default(0) @db.Decimal(10, 2)
+  discountPercent Decimal     @default(0) @db.Decimal(5, 2)
+  taxAmount     Decimal       @db.Decimal(10, 2)
+  taxRate       Decimal       @db.Decimal(5, 2)
+  total         Decimal       @db.Decimal(10, 2)
+  orderId       String
+  order         Order         @relation(fields: [orderId], references: [id])
+  outletId      String
+  createdById   String
+  createdBy     User          @relation(fields: [createdById], references: [id])
+  createdAt     DateTime      @default(now())
+  payments      Payment[]
+  lineItems     BillLineItem[]
+
+  @@unique([outletId, billNumber])
+  @@index([outletId, createdAt])
+}
+
+model BillLineItem {
+  id        String   @id @default(cuid())
+  billId    String
+  bill      Bill     @relation(fields: [billId], references: [id], onDelete: Cascade)
+  name      String
+  variation String?
+  quantity  Int
+  unitPrice Decimal  @db.Decimal(10, 2)
+  lineTotal Decimal  @db.Decimal(10, 2)
+  addons    String?
+  sortOrder Int      @default(0)
+
+  @@index([billId])
+}
+
+model Payment {
+  id        String        @id @default(cuid())
+  method    PaymentMethod
+  amount    Decimal       @db.Decimal(10, 2)
+  status    PaymentStatus @default(COMPLETED)
+  reference String?
+  billId    String
+  bill      Bill          @relation(fields: [billId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now())
+
+  @@index([billId])
+}
+
+model DailyCounter {
+  id       String @id @default(cuid())
+  outletId String
+  date     DateTime @db.Date
+  orders   Int    @default(0)
+  bills    Int    @default(0)
+  kots     Int    @default(0)
+
+  @@unique([outletId, date])
+}

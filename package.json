@@ -1,0 +1,13 @@
+{
+  "name": "hotelmanagement",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "setup": "cd backend && npm install && npx prisma db push && npm run db:seed && cd ../frontend && npm install",
+    "dev:api": "cd backend && npm run start:dev",
+    "dev:web": "cd frontend && npm run dev",
+    "build": "cd backend && npm run build && cd ../frontend && npm run build"
+  }
+}
