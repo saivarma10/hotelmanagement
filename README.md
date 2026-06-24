@@ -7,11 +7,12 @@ Production-grade restaurant POS MVP: billing, table management, KOT, GST billing
 ## Demo Video
 
 <p align="center">
-  <video controls width="100%">
-    <source src="images/demo.mp4" type="video/mp4" />
-    Your browser does not support the video tag.
-  </video>
+  <a href="images/demo.mp4">
+    <img src="images/demo-preview.gif" alt="Demo video preview" width="100%" />
+  </a>
 </p>
+
+Click the preview above to open the demo video.
 
 ## Stack
 
