@@ -4,6 +4,10 @@ Production-grade restaurant POS MVP: billing, table management, KOT, GST billing
 
 **Architecture:** See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for system diagrams, microservices plan, and full tech stack.
 
+## Demo Video
+
+Watch the demo video here: [images/Demo.mov](images/Demo.mov)
+
 ## Stack
 
 | Layer | Technology |
